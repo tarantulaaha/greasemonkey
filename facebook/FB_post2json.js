@@ -1,43 +1,80 @@
 // ==UserScript==
-// @name         Gacebook post to json
+// @name         Facebook Post Scraper
 // @namespace    http://tampermonkey.net/
 // @version      0.1
-// @description  try to take over the world!
+// @description  Scrapes Facebook posts, comments, and nested comments and saves them to JSON.
 // @author       You
-// @match        https://www.facebook.com/groups/*/posts/*/
-// @icon         https://www.google.com/s2/favicons?sz=64&domain=google.com
+// @match        https://www.facebook.com/*
 // @grant        none
 // ==/UserScript==
 
-(function() {
+(function () {
     'use strict';
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(html, "text/html");
 
-    const post = doc.querySelector("div[role='article']");
-    const comments = doc.querySelectorAll("div[role='article']");
+    // Function to add a custom button to the page
+    function addCustomBar() {
+        const bar = document.createElement("div");
+        bar.id="bar";
+        bar.style.position="fixed";
+        bar.style.bottom="0px";
+        bar.style.left="0px";
+        const targetNode = document.querySelector("body");
+        if (targetNode) {
+            targetNode.appendChild(bar);
+        }
+        const button = document.createElement("button");
 
-    const postAuthor = post.querySelector("a[role='link']").textContent.trim();
-    const postText = post.querySelector("div[dir='auto']").textContent.trim();
+        button.textContent = "Scrape and Save to JSON"; // Set the button text
+        button.style.margin = "10px";
+        button.addEventListener("click", scrapePostAndComments);
+        bar.appendChild(button)
 
-    const structuredData = {
-        post: {
-            author: postAuthor,
-            text: postText
-        },
-        comments: []
-    };
+    }
 
-    comments.forEach(comment => {
-        const author = comment.querySelector("a[role='link']").textContent.trim();
-        const text = comment.querySelector("div[dir='auto']").textContent.trim();
+    function scrapePostAndComments() {
+        const post = document.querySelector(".xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1vvkbs.x126k92a > div");
+        if (!post) return; // Post not found, exit.
 
-        structuredData.comments.push({
-            author,
-            text
-        });
-    });
+        const postData = {
+            post: {
+                content: post.textContent.trim(),
+                comments: [],
+            },
+        };
 
-    console.log(JSON.stringify(structuredData, null, 2));
-    // Your code here...
+        // Function to extract comments and nested comments
+        function extractComments(commentContainer, commentsArray) {
+            const comments = commentContainer.querySelectorAll(".xdj266r.x11i5rnm.xat24cr.x1mh8g0r.x1vvkbs > div");
+
+            comments.forEach(comment => {
+                const commentData = {
+                    text: comment.textContent.trim(),
+                    author: "",
+                    replies: [],
+                };
+
+                // Handle nested comments
+                const nestedCommentsContainer = comment.nextElementSibling;
+                if (nestedCommentsContainer) {
+                    extractComments(nestedCommentsContainer, commentData.replies);
+                }
+
+                commentsArray.push(commentData);
+            });
+        }
+
+        // Extract post comments
+        const commentContainer = document.querySelector(".x1jx94hy.x12nagc");
+
+        if (commentContainer) {
+            extractComments(commentContainer, postData.post.comments);
+        }
+
+        // Convert to JSON and save (modify this part according to your needs)
+        const jsonData = JSON.stringify(postData, null, 2);
+        console.log(jsonData);
+    }
+
+    window.addEventListener('load', addCustomBar);
+
 })();
